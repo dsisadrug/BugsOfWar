@@ -101,6 +101,20 @@ def ground_tank(tank, mount):
 				overlap_flag = True
 		return tank
 
+def move_tank(tank, mount, step):
+	'''
+	Makes the tank move in the the given direction 
+	and also allows the tank to climb up to a certain slope
+	'''
+	tank.rect = tank.rect.move((step,0)) #make the tank move
+	t_offset = (mount.rect.left-tank.rect.left, mount.rect.top - tank.rect.top)
+	if tank.mask.overlap_area(mount.mask, t_offset)> 50: #if the movement results in the tank overlapping with the mount
+		tank.rect = tank.rect.move((0, -5)) #raise the tank to the acceptable slope
+		t_offset = (mount.rect.left-tank.rect.left, mount.rect.top - tank.rect.top)
+		if tank.mask.overlap_area(mount.mask, t_offset)> 50: #if it is still overlapping
+			tank.rect = tank.rect.move((-step, 0)) #return it to its initial position on the x axis (ground_tank will handle the y axis)
+	return tank
+
 def explosion(x,y, tank1, tank2, size=50):
 	explode = True
 
@@ -147,7 +161,7 @@ def fireshell(tank):
 	shell_rect = shell_surf.get_rect(center = turret_exit)
 	pygame.draw.circle(shell_surf, red, (5, 5), 5)
 	shell_mask = pygame.mask.from_surface(shell_surf)
-	prev_coords = [shell_rect.center]
+	prev_coords = []
 
 	#make the loop stop after a single press of the space key
 	while fire:
@@ -186,7 +200,8 @@ def fireshell(tank):
 		game_display.blit(shell_surf, shell_rect)
 		pygame.display.update()
 		prev_coords.append(shell_rect.center)
-		pygame.draw.circle(game_display, blue, prev_coords[-2], 5)
+		if len(prev_coords)>1:
+			pygame.draw.circle(game_display, blue, prev_coords[-2], 5)
 		clock.tick(60)
 
 
@@ -220,6 +235,9 @@ tank.draw_with_mask()
 tank2 = Tank(rect_x = int(0.9*800), rect_y = int(0.1*600))
 tank2.draw_with_mask()
 
+left_flag =False
+right_flag = False
+
 while True:
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
@@ -228,8 +246,19 @@ while True:
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_SPACE:
 				fireshell(tank2)
+			elif event.key ==pygame.K_LEFT:
+				left_flag = True
+			elif event.key ==pygame.K_RIGHT:
+				right_flag = True
+		elif event.type == pygame.KEYUP:
+					if event.key == pygame.K_LEFT:
+						left_flag = False
+					elif event.key == pygame.K_RIGHT:
+						right_flag = False
 
 	# render the screen, sun and surface
+	
+
 	game_display.fill(blue)
 	pygame.draw.circle(game_display, red, (150, 150), 100)
 
@@ -237,7 +266,6 @@ while True:
 	tank2= ground_tank(tank2, mount)
 
 	#game_display.blit(tank.surf, tank.rect)
-	game_display.blit(tank2.surf, tank2.rect)
 	game_display.blit(mount.surf, mount.rect)
 
 	#render the object with the mouse's position
@@ -259,8 +287,12 @@ while True:
 		explode_offset_y = explode_rect.top - mount.rect.top
 		mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 	
-	game_display.blit(tank.surf, tank.rect)
-	game_display.blit(tank2.surf, tank2.rect)
+	if left_flag:
+		tank2 = move_tank(tank2, mount, -5)# tank2.rect = tank2.rect.move((-5,0))
+		clock.tick(15)
+	if right_flag:
+		tank2 = move_tank(tank2, mount, 5)
+		clock.tick(15)
 
 	# now draw this surface with the color depending on the collision or not
 	if len(explode_list) > 0:
