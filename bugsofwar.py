@@ -22,6 +22,8 @@ color = orange
 
 tank_w = 40
 tank_h = 20
+gun_power = 0
+power_change = 0
 turret_w = 5
 wheel_w = 5
 explosion_radius = 50
@@ -144,7 +146,7 @@ def explosion(x,y, tank1, tank2, size=50):
 
 		explode = False
 
-def fireshell(tank, direction):
+def fireshell(tank, direction, power):
 	#damage = 0
 	#take the gun coordinates and fire the shell
 	fire = True
@@ -152,7 +154,7 @@ def fireshell(tank, direction):
 	print("Fire!")
 
 	tur_pos=6
-	gun_power=85
+	gun_power=power
 
 	shell_surf = pygame.Surface((10,10))
 	shell_surf.fill(blue)
@@ -237,6 +239,8 @@ tank.draw_with_mask()
 tank2 = Tank(rect_x = int(0.9*800), rect_y = int(0.1*600), direction = 1)
 tank2.draw_with_mask()
 
+tank_list = [tank, tank2]
+tank_index = 0
 left_flag =False
 right_flag = False
 
@@ -247,26 +251,38 @@ while True:
 			quit()
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_SPACE:
-				fireshell(tank2, direction=tank2.direction)
+				power_change += 1
+				#fireshell(tank2, direction=tank2.direction)
 			elif event.key ==pygame.K_LEFT:
 				left_flag = True
-				tank2.update_turret(change = 1)
-				tank2.draw_with_mask()
+				tank_list[tank_index].update_turret(change = 1)
+				tank_list[tank_index].draw_with_mask()
 			elif event.key ==pygame.K_RIGHT:
 				right_flag = True
-				tank2.update_turret(change = -1)
-				tank2.draw_with_mask()
+				tank_list[tank_index].update_turret(change = -1)
+				tank_list[tank_index].draw_with_mask()
 		elif event.type == pygame.KEYUP:
 					if event.key == pygame.K_LEFT:
 						left_flag = False
 					elif event.key == pygame.K_RIGHT:
 						right_flag = False
-
+					elif event.key == pygame.K_SPACE:
+						fireshell(tank_list[tank_index], direction=tank_list[tank_index].direction, power = gun_power)
+						power_change = 0
+						gun_power = 0
+						tank_index += 1
+						tank_index %= 2
+	
+	gun_power += power_change
+	if gun_power>100:
+		gun_power=100
+	clock.tick(35)
 	# render the screen, sun and surface
 	
 
 	game_display.fill(blue)
 	pygame.draw.circle(game_display, red, (150, 150), 100)
+	pygame.draw.rect(game_display, red, (int(0.9*screen_w), int(0.1*screen_h), int(gun_power/2), 10))
 	tank = ground_tank(tank, mount)
 	tank2= ground_tank(tank2, mount)
 
@@ -293,10 +309,10 @@ while True:
 		mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 	
 	if left_flag:
-		tank2 = move_tank(tank2, mount, -5)# tank2.rect = tank2.rect.move((-5,0))
+		tank_list[tank_index] = move_tank(tank_list[tank_index], mount, -5)# tank2.rect = tank2.rect.move((-5,0))
 		clock.tick(15)
 	if right_flag:
-		tank2 = move_tank(tank2, mount, 5)
+		tank_list[tank_index] = move_tank(tank_list[tank_index], mount, 5)
 		clock.tick(15)
 
 	# now draw this surface with the color depending on the collision or not
