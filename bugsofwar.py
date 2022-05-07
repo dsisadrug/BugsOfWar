@@ -24,7 +24,6 @@ tank_w = 40
 tank_h = 20
 turret_w = 5
 wheel_w = 5
-barrier_w = 50
 explosion_radius = 50
 mount_shape = ((0, random.randrange(0.75*200, 1.25*200)),
 			 (random.randrange(0.75*200, 1.25*200), random.randrange(0.8*150, 1.2*150)),
@@ -37,14 +36,12 @@ mount_shape = ((0, random.randrange(0.75*200, 1.25*200)),
 clock = pygame.time.Clock()
 game_display = pygame.display.set_mode((screen_w, screen_h))
 
-x = 20
-y = 26
-
 #tank block
 class Tank:
-	def __init__(self, rect_x, rect_y):
+	def __init__(self, rect_x, rect_y, direction):
 		self.rect_x = rect_x
 		self.rect_y = rect_y
+		self.direction = direction #1 - left; -1 - right
 		self.surf_h = 52
 		self.turret_w = 5
 		self.wheel_w = 5
@@ -52,7 +49,7 @@ class Tank:
 		self.h = 20
 		self.x = self.w/2
 		self.y = self.surf_h/2
-		self.line_x = self.x-20
+		self.line_x = self.x-(20*self.direction)
 		self.line_y = self.y-14
 		self.bg_color = blue
 		self.color = black
@@ -70,6 +67,11 @@ class Tank:
 		for i in range(7):
 			pygame.draw.circle(self.surf, self.color, (self.x-start_x, self.y+20), self.wheel_w)
 			start_x -= 5
+	def update_turret(self, change):
+		self.direction = change
+		self.line_x = self.x-(20*self.direction)
+		self.line_y = self.y-14
+
 
 class Mount:
 	def __init__(self, display, shape):
@@ -93,8 +95,8 @@ def ground_tank(tank, mount):
 		while overlap_flag == False:
 			tank.rect = tank.rect.move((0, 1))
 			t_offset = (mount.rect.left - tank.rect.left, mount.rect.top - tank.rect.top)
-			if tank.rect.bottom >= 600:
-				tank.rect.bottom = 600
+			if tank.rect.bottom >= screen_h:
+				tank.rect.bottom = screen_h
 				overlap_flag = True
 			elif tank.mask.overlap_area(mount.mask, t_offset)> 50:
 				tank.rect = tank.rect.move((0, -1))
@@ -142,7 +144,7 @@ def explosion(x,y, tank1, tank2, size=50):
 
 		explode = False
 
-def fireshell(tank):
+def fireshell(tank, direction):
 	#damage = 0
 	#take the gun coordinates and fire the shell
 	fire = True
@@ -156,7 +158,7 @@ def fireshell(tank):
 	shell_surf.fill(blue)
 	shell_surf.set_colorkey(blue)
 
-	turret_exit = (tank.rect.left + 5, tank.rect.top +10)
+	turret_exit = (tank.rect.center[0] -(15*direction), tank.rect.top +10)
 
 	shell_rect = shell_surf.get_rect(center = turret_exit)
 	pygame.draw.circle(shell_surf, red, (5, 5), 5)
@@ -178,7 +180,7 @@ def fireshell(tank):
 			explode_list.append(explode_coords)
 			fire = False
 
-		x_change = (12-tur_pos)*2
+		x_change = (12-tur_pos)*(2*direction)
 		y_change = int((((shell_rect.center[0]-turret_exit[0])*0.015/(gun_power/50))**2) - (tur_pos+tur_pos/(12-tur_pos)))
 
 		#shell_rect.center[1] += y_change
@@ -190,7 +192,7 @@ def fireshell(tank):
 		#check if there is a collision or not
 		if mount.mask.overlap(shell_mask, (offset_x, offset_y)):
 			explosion(shell_rect.left, shell_rect.top, tank1=tank, tank2=tank2, size= explosion_radius)
-			explode_coords = (shell_rect.left, shell_rect.top-300)
+			explode_coords = (shell_rect.left, shell_rect.top-mount.h)
 			explode_list.append(explode_coords)
 			explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+300))
 			explode_offset_x = explode_rect.left - mount.rect.left
@@ -230,9 +232,9 @@ finally - create a mask for collision purposes
 explode_list = []
 
 mount = Mount(display = game_display, shape = mount_shape)
-tank = Tank(rect_x = int(0.1*800), rect_y = int(0.1*600))
+tank = Tank(rect_x = int(0.1*800), rect_y = int(0.1*600), direction= -1)
 tank.draw_with_mask()
-tank2 = Tank(rect_x = int(0.9*800), rect_y = int(0.1*600))
+tank2 = Tank(rect_x = int(0.9*800), rect_y = int(0.1*600), direction = 1)
 tank2.draw_with_mask()
 
 left_flag =False
@@ -245,11 +247,15 @@ while True:
 			quit()
 		elif event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_SPACE:
-				fireshell(tank2)
+				fireshell(tank2, direction=tank2.direction)
 			elif event.key ==pygame.K_LEFT:
 				left_flag = True
+				tank2.update_turret(change = 1)
+				tank2.draw_with_mask()
 			elif event.key ==pygame.K_RIGHT:
 				right_flag = True
+				tank2.update_turret(change = -1)
+				tank2.draw_with_mask()
 		elif event.type == pygame.KEYUP:
 					if event.key == pygame.K_LEFT:
 						left_flag = False
@@ -261,7 +267,6 @@ while True:
 
 	game_display.fill(blue)
 	pygame.draw.circle(game_display, red, (150, 150), 100)
-
 	tank = ground_tank(tank, mount)
 	tank2= ground_tank(tank2, mount)
 
@@ -280,9 +285,9 @@ while True:
 	#check if there is a collision or not
 	if mount.mask.overlap(player_mask, (offset_x, offset_y)):
 		explosion(player_rect.left, player_rect.top, tank1=tank, tank2=tank2, size= explosion_radius)
-		explode_coords = (player_rect.left, player_rect.top-300)
+		explode_coords = (player_rect.left, player_rect.top-mount.h)
 		explode_list.append(explode_coords)
-		explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+300))
+		explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+mount.h))
 		explode_offset_x = explode_rect.left - mount.rect.left
 		explode_offset_y = explode_rect.top - mount.rect.top
 		mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
