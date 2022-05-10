@@ -77,11 +77,17 @@ class Tank:
 		pygame.draw.rect(self.surf, '#808080', (int(0.05*self.w), int(0.05*self.surf_h), int(100/3), 5))
 		pygame.draw.rect(self.surf, self.health_color, (int(0.05*self.w), int(0.05*self.surf_h), int(self.health/3), 5))
 	def update_turret(self, change):
+		#update the turret's direction (1 left; -1 right)
 		self.direction = change
 		self.line_x = self.x-(20*self.direction)
 		self.line_y = self.y-14
 	def decrease_health(self, damage):
+		#decrease the health on damage and change the color of the healthbar
 		self.health -= damage
+		if self.health <= 25:
+			self.health_color = red
+		elif self.health <= 75:
+			self.health_color = yellow
 
 class Mount:
 	def __init__(self, display, shape):
