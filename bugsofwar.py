@@ -1,5 +1,6 @@
 import pygame
 import random
+import math
 
 pygame.init()
 
@@ -20,9 +21,9 @@ light_green = (0, 255, 0)
 
 color = orange
 
-tank_w = 40
+tank_w = 40 
 tank_h = 20
-gun_power = 0
+gun_power = 1  
 power_change = 0
 turret_w = 5
 wheel_w = 5
@@ -34,6 +35,8 @@ mount_shape = ((0, random.randrange(0.75*200, 1.25*200)),
 			 (800, random.randrange(0.75*200, 1.25*200)), 
 			 (800, 600), 
 			 (0, 600))
+
+s_font = pygame.font.SysFont('comicsansms', 20)
 
 clock = pygame.time.Clock()
 game_display = pygame.display.set_mode((screen_w, screen_h))
@@ -58,6 +61,8 @@ class Tank:
 		self.surf = pygame.Surface((self.w, self.surf_h))
 		self.rect = self.surf.get_rect(center = (self.rect_x, self.rect_y))
 		self.mask = pygame.mask.from_surface(self.surf)
+		self.health = 100
+		self.health_color = green
 
 	def draw_with_mask(self):
 		self.surf.fill(self.bg_color)
@@ -69,11 +74,14 @@ class Tank:
 		for i in range(7):
 			pygame.draw.circle(self.surf, self.color, (self.x-start_x, self.y+20), self.wheel_w)
 			start_x -= 5
+		pygame.draw.rect(self.surf, '#808080', (int(0.05*self.w), int(0.05*self.surf_h), int(100/3), 5))
+		pygame.draw.rect(self.surf, self.health_color, (int(0.05*self.w), int(0.05*self.surf_h), int(self.health/3), 5))
 	def update_turret(self, change):
 		self.direction = change
 		self.line_x = self.x-(20*self.direction)
 		self.line_y = self.y-14
-
+	def decrease_health(self, damage):
+		self.health -= damage
 
 class Mount:
 	def __init__(self, display, shape):
@@ -119,7 +127,7 @@ def move_tank(tank, mount, step):
 			tank.rect = tank.rect.move((-step, 0)) #return it to its initial position on the x axis (ground_tank will handle the y axis)
 	return tank
 
-def explosion(x,y, tank1, tank2, size=50):
+def explosion(x,y, tank1, tank2, size=explosion_radius):
 	explode = True
 
 	while explode:
@@ -174,7 +182,6 @@ def fireshell(tank, direction, power):
 				pygame.quit()
 				quit()
 
-		print(shell_rect.center[0], shell_rect.center[1])
 		if shell_rect.bottom > screen_h:
 			shell_rect.bottom = screen_h
 			explosion(shell_rect.left, shell_rect.top, tank1=tank, tank2=tank2, size= explosion_radius)
@@ -199,6 +206,9 @@ def fireshell(tank, direction, power):
 			explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+300))
 			explode_offset_x = explode_rect.left - mount.rect.left
 			explode_offset_y = explode_rect.top - mount.rect.top
+			for vehicle in tank_list:
+				if math.dist(shell_rect.center, vehicle.rect.center)<(explosion_radius+math.dist(vehicle.rect.center, vehicle.rect.bottomleft)):
+					vehicle.decrease_health(25)
 			mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 			fire = False
 		game_display.blit(shell_surf, shell_rect)
@@ -222,9 +232,6 @@ player_surf = pygame.Surface((3,3))
 player_surf.fill(red)
 player_rect = player_surf.get_rect(center = (300, 300))
 player_mask = pygame.mask.from_surface(player_surf)
-
-#draw the sun
-pygame.draw.circle(game_display, red, (150, 150), 100) # draw a circle		
 
 '''
 Create first the surface, draw a polygon on it, 
@@ -269,7 +276,7 @@ while True:
 					elif event.key == pygame.K_SPACE:
 						fireshell(tank_list[tank_index], direction=tank_list[tank_index].direction, power = gun_power)
 						power_change = 0
-						gun_power = 0
+						gun_power = 1 #must be at leat 1 to prevent dividionbyzero error
 						tank_index += 1
 						tank_index %= 2
 	
@@ -277,16 +284,32 @@ while True:
 	if gun_power>100:
 		gun_power=100
 	clock.tick(35)
-	# render the screen, sun and surface
-	
 
+	'''
+	Render all the appropriate objects:
+	Screen, sun, power rectangle, mount, tanks etc
+	'''
+
+	# render the screen, sun and surface
 	game_display.fill(blue)
 	pygame.draw.circle(game_display, red, (150, 150), 100)
-	pygame.draw.rect(game_display, red, (int(0.9*screen_w), int(0.1*screen_h), int(gun_power/2), 10))
+	
+	#draw the power rectangle
+	pygame.draw.rect(game_display, white, (int(0.88*screen_w), int(0.05*screen_h), 80, 50)) #backdrop
+	text = s_font.render('Power', True, black)
+	game_display.blit(text, [int(0.895*screen_w),int(0.05*screen_h)]) #"Power" text
+	pygame.draw.rect(game_display, black, (int(0.9*screen_w)-3, int(0.1*screen_h)-3, 56, 16), 3) #black frame
+	pygame.draw.rect(game_display, red, (int(0.9*screen_w), int(0.1*screen_h), int(gun_power/2), 10)) #filling out when charging
+
+
+	#Tanks
 	tank = ground_tank(tank, mount)
 	tank2= ground_tank(tank2, mount)
 
-	#game_display.blit(tank.surf, tank.rect)
+	#highlight the current tank
+
+
+	#The mountain
 	game_display.blit(mount.surf, mount.rect)
 
 	#render the object with the mouse's position
@@ -306,6 +329,9 @@ while True:
 		explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+mount.h))
 		explode_offset_x = explode_rect.left - mount.rect.left
 		explode_offset_y = explode_rect.top - mount.rect.top
+		for vehicle in tank_list:
+				if math.dist(player_rect.center, vehicle.rect.center)<(explosion_radius+math.dist(vehicle.rect.center, vehicle.rect.bottomleft)):
+					vehicle.decrease_health(25)
 		mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 	
 	if left_flag:
@@ -320,7 +346,9 @@ while True:
 		for coords in explode_list:
 			pygame.draw.circle(mount.surf, blue, coords, 50)
 
+	#display the tanks as well as highlight the current tank with a yellow dot
 	game_display.blit(tank.surf, tank.rect)
 	game_display.blit(tank2.surf, tank2.rect)
+	pygame.draw.circle(game_display, yellow, (tank_list[tank_index].rect.center[0],tank_list[tank_index].rect.center[1]-35), 5)
 
 	pygame.display.update()
