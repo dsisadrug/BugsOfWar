@@ -50,12 +50,11 @@ class Tank:
 		self.surf_h = 52
 		self.turret_w = 5
 		self.wheel_w = 5
+		self.tur_pos = 4
 		self.w = 40
 		self.h = 20
 		self.x = self.w/2
 		self.y = self.surf_h/2
-		self.line_x = self.x-(20*self.direction)
-		self.line_y = self.y-14
 		self.bg_color = blue
 		self.color = black
 		self.surf = pygame.Surface((self.w, self.surf_h))
@@ -63,6 +62,17 @@ class Tank:
 		self.mask = pygame.mask.from_surface(self.surf)
 		self.health = 100
 		self.health_color = green
+		self.turret_positions = [(27, 2),
+						(26, 5),
+						(25, 8),
+						(23, 12),
+						(20, 14),
+						(18, 15),
+						(15, 17),
+						(13, 19),
+						(11, 21)]
+		self.line_x = self.x-(self.turret_positions[self.tur_pos][0]*self.direction)
+		self.line_y = self.y-self.turret_positions[self.tur_pos][1]
 
 	def draw_with_mask(self):
 		self.surf.fill(self.bg_color)
@@ -76,11 +86,11 @@ class Tank:
 			start_x -= 5
 		pygame.draw.rect(self.surf, '#808080', (int(0.05*self.w), int(0.05*self.surf_h), int(100/3), 5))
 		pygame.draw.rect(self.surf, self.health_color, (int(0.05*self.w), int(0.05*self.surf_h), int(self.health/3), 5))
-	def update_turret(self, change):
+	def update_turret(self, change, tur_pos):
 		#update the turret's direction (1 left; -1 right)
 		self.direction = change
-		self.line_x = self.x-(20*self.direction)
-		self.line_y = self.y-14
+		self.line_x = self.x-(self.turret_positions[self.tur_pos][0]*self.direction)
+		self.line_y = self.y-self.turret_positions[self.tur_pos][1]
 	def decrease_health(self, damage):
 		#decrease the health on damage and change the color of the healthbar
 		self.health -= damage
@@ -167,7 +177,7 @@ def fireshell(tank, direction, power):
 	#convert the tuple into a list to enable modifications of the shell position
 	print("Fire!")
 
-	tur_pos=6
+	tur_pos= tank.tur_pos
 	gun_power=power
 
 	shell_surf = pygame.Surface((10,10))
@@ -224,6 +234,27 @@ def fireshell(tank, direction, power):
 			pygame.draw.circle(game_display, blue, prev_coords[-2], 5)
 		clock.tick(60)
 
+def game_over(win_index):
+	game_over = True
+
+	while game_over:
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				pygame.quit()
+				quit()
+			if event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_q:
+					pygame.quit()
+					quit()
+
+		game_display.fill(white)
+		text_surf = s_font.render(f"Player {win_index+1} won!", True, black)
+		text_rect = text_surf.get_rect()
+		text_rect.center = (screen_w/2), (screen_h/2)
+		game_display.blit(text_surf, text_rect)
+
+		pygame.display.update()
+		clock.tick(30)
 
 #explosion block
 explode_surf = pygame.Surface((100, 100))
@@ -233,11 +264,11 @@ pygame.draw.circle(explode_surf, red, (50,50), 50)
 explode_mask = pygame.mask.from_surface(explode_surf)
 
 
-#player dot block
-player_surf = pygame.Surface((3,3))
-player_surf.fill(red)
-player_rect = player_surf.get_rect(center = (300, 300))
-player_mask = pygame.mask.from_surface(player_surf)
+# #player dot block
+# player_surf = pygame.Surface((3,3))
+# player_surf.fill(red)
+# player_rect = player_surf.get_rect(center = (300, 300))
+# player_mask = pygame.mask.from_surface(player_surf)
 
 '''
 Create first the surface, draw a polygon on it, 
@@ -268,12 +299,26 @@ while True:
 				#fireshell(tank2, direction=tank2.direction)
 			elif event.key ==pygame.K_LEFT:
 				left_flag = True
-				tank_list[tank_index].update_turret(change = 1)
+				tank_list[tank_index].update_turret(change = 1, tur_pos = tank_list[tank_index].tur_pos)
 				tank_list[tank_index].draw_with_mask()
 			elif event.key ==pygame.K_RIGHT:
 				right_flag = True
-				tank_list[tank_index].update_turret(change = -1)
+				tank_list[tank_index].update_turret(change = -1, tur_pos = tank_list[tank_index].tur_pos)
 				tank_list[tank_index].draw_with_mask()
+			elif event.key ==pygame.K_UP:
+				up_flag = True
+				if tank_list[tank_index].tur_pos < 8:
+					tank_list[tank_index].tur_pos +=1
+					tank_list[tank_index].update_turret(change = tank_list[tank_index].direction, tur_pos = tank_list[tank_index].tur_pos)
+					tank_list[tank_index].draw_with_mask()
+					clock.tick(10)
+			elif event.key ==pygame.K_DOWN:
+				up_flag = True
+				if tank_list[tank_index].tur_pos > 0:
+					tank_list[tank_index].tur_pos -=1
+					tank_list[tank_index].update_turret(change = tank_list[tank_index].direction, tur_pos = tank_list[tank_index].tur_pos)
+					tank_list[tank_index].draw_with_mask()
+					clock.tick(10)
 		elif event.type == pygame.KEYUP:
 					if event.key == pygame.K_LEFT:
 						left_flag = False
@@ -318,27 +363,27 @@ while True:
 	#The mountain
 	game_display.blit(mount.surf, mount.rect)
 
-	#render the object with the mouse's position
-	if pygame.mouse.get_pos():
-		player_rect.center = pygame.mouse.get_pos()
-	game_display.blit(player_surf, player_rect)
+	# #render the object with the mouse's position
+	# if pygame.mouse.get_pos():
+	# 	player_rect.center = pygame.mouse.get_pos()
+	# game_display.blit(player_surf, player_rect)
 
-	# calculate the offset
-	offset_x = player_rect.left - mount.rect.left
-	offset_y = player_rect.top - mount.rect.top
-
-	#check if there is a collision or not
-	if mount.mask.overlap(player_mask, (offset_x, offset_y)):
-		explosion(player_rect.left, player_rect.top, tank1=tank, tank2=tank2, size= explosion_radius)
-		explode_coords = (player_rect.left, player_rect.top-mount.h)
-		explode_list.append(explode_coords)
-		explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+mount.h))
-		explode_offset_x = explode_rect.left - mount.rect.left
-		explode_offset_y = explode_rect.top - mount.rect.top
-		for vehicle in tank_list:
-				if math.dist(player_rect.center, vehicle.rect.center)<(explosion_radius+math.dist(vehicle.rect.center, vehicle.rect.bottomleft)):
-					vehicle.decrease_health(25)
-		mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
+	# # calculate the offset
+	# offset_x = player_rect.left - mount.rect.left
+	# offset_y = player_rect.top - mount.rect.top
+	
+	# #check if there is a collision or not
+	# if mount.mask.overlap(player_mask, (offset_x, offset_y)):
+	# 	explosion(player_rect.left, player_rect.top, tank1=tank, tank2=tank2, size= explosion_radius)
+	# 	explode_coords = (player_rect.left, player_rect.top-mount.h)
+	# 	explode_list.append(explode_coords)
+	# 	explode_rect = explode_surf.get_rect(center = (explode_coords[0], explode_coords[1]+mount.h))
+	# 	explode_offset_x = explode_rect.left - mount.rect.left
+	# 	explode_offset_y = explode_rect.top - mount.rect.top
+	# 	for vehicle in tank_list:
+	# 			if math.dist(player_rect.center, vehicle.rect.center)<(explosion_radius+math.dist(vehicle.rect.center, vehicle.rect.bottomleft)):
+	# 				vehicle.decrease_health(25)
+	# 	mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 	
 	if left_flag:
 		tank_list[tank_index] = move_tank(tank_list[tank_index], mount, -5)# tank2.rect = tank2.rect.move((-5,0))
@@ -358,3 +403,7 @@ while True:
 	pygame.draw.circle(game_display, yellow, (tank_list[tank_index].rect.center[0],tank_list[tank_index].rect.center[1]-35), 5)
 
 	pygame.display.update()
+
+	for vehicle in tank_list:
+		if vehicle.health == 0:
+			game_over(win_index=(tank_list.index(vehicle)+1)%2)
