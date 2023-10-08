@@ -110,14 +110,22 @@ class Tank:
             (int(0.05 * self.w), int(0.05 * self.surf_h), int(self.health / 3), 5),
         )
 
-    def update_turret(self, change, tur_pos):
-        # update the turret's direction (1 left; -1 right)
+    def update_turret(self, change):
+        """Updates the turret's direction.
+
+        Args:
+            change (int): Change in direction (1 left; -1 right)
+        """
         self.direction = change
         self.line_x = self.x - (self.turret_positions[self.tur_pos][0] * self.direction)
         self.line_y = self.y - self.turret_positions[self.tur_pos][1]
 
     def decrease_health(self, damage):
-        # decrease the health on damage and change the color of the healthbar
+        """Decrease the health on damage and change the color of the healthbar
+
+		Args:
+			damage (int): The amount of damage to decrease health by
+		"""
         self.health -= damage
         if self.health <= 25:
             self.health_color = red
@@ -357,23 +365,18 @@ while True:
                 # fireshell(tank2, direction=tank2.direction)
             elif event.key == pygame.K_LEFT:
                 left_flag = True
-                tank_list[tank_index].update_turret(
-                    change=1, tur_pos=tank_list[tank_index].tur_pos
-                )
+                tank_list[tank_index].update_turret(change=1)
                 tank_list[tank_index].draw_with_mask()
             elif event.key == pygame.K_RIGHT:
                 right_flag = True
-                tank_list[tank_index].update_turret(
-                    change=-1, tur_pos=tank_list[tank_index].tur_pos
-                )
+                tank_list[tank_index].update_turret(change=-1)
                 tank_list[tank_index].draw_with_mask()
             elif event.key == pygame.K_UP:
                 up_flag = True
                 if tank_list[tank_index].tur_pos < 8:
                     tank_list[tank_index].tur_pos += 1
                     tank_list[tank_index].update_turret(
-                        change=tank_list[tank_index].direction,
-                        tur_pos=tank_list[tank_index].tur_pos,
+                        change=tank_list[tank_index].direction
                     )
                     tank_list[tank_index].draw_with_mask()
                     clock.tick(10)
@@ -382,8 +385,7 @@ while True:
                 if tank_list[tank_index].tur_pos > 0:
                     tank_list[tank_index].tur_pos -= 1
                     tank_list[tank_index].update_turret(
-                        change=tank_list[tank_index].direction,
-                        tur_pos=tank_list[tank_index].tur_pos,
+                        change=tank_list[tank_index].direction
                     )
                     tank_list[tank_index].draw_with_mask()
                     clock.tick(10)
