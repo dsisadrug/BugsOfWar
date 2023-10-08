@@ -110,27 +110,152 @@ class Tank:
             (int(0.05 * self.w), int(0.05 * self.surf_h), int(self.health / 3), 5),
         )
 
-    def update_turret(self, change):
+    def update_turret(self):
         """Updates the turret's direction.
 
         Args:
-            change (int): Change in direction (1 left; -1 right)
+                change (int): Change in direction (1 left; -1 right)
         """
-        self.direction = change
-        self.line_x = self.x - (self.turret_positions[self.tur_pos][0] * self.direction)
+        self.line_x = self.x - (
+            self.turret_positions[self.tur_pos][0] * (self.direction * -1)
+        )
         self.line_y = self.y - self.turret_positions[self.tur_pos][1]
 
     def decrease_health(self, damage):
         """Decrease the health on damage and change the color of the healthbar
 
-		Args:
-			damage (int): The amount of damage to decrease health by
-		"""
+        Args:
+                damage (int): The amount of damage to decrease health by
+        """
         self.health -= damage
         if self.health <= 25:
             self.health_color = red
         elif self.health <= 75:
             self.health_color = yellow
+
+    def ground(self, mount):
+        t_offset = (mount.rect.left - self.rect.left, mount.rect.top - self.rect.top)
+        overlap_flag = False
+
+        while overlap_flag == False:
+            self.rect = self.rect.move((0, 1))
+            t_offset = (
+                mount.rect.left - self.rect.left,
+                mount.rect.top - self.rect.top,
+            )
+            if self.rect.bottom >= screen_h:
+                self.rect.bottom = screen_h
+                overlap_flag = True
+            elif self.mask.overlap_area(mount.mask, t_offset) > 50:
+                self.rect = self.rect.move((0, -1))
+                overlap_flag = True
+
+    def move(self, mount, step):
+        """Makes the tank move in the the given direction
+        and also allows the tank to climb up to a certain slope
+
+        Args:
+                mount (Mount): The mount that the tank is moving on
+                step (int): The step by which the tank is moving
+        """
+        self.rect = self.rect.move((step, 0))  # make the tank move
+        t_offset = (mount.rect.left - self.rect.left, mount.rect.top - self.rect.top)
+        if (
+            self.mask.overlap_area(mount.mask, t_offset) > 50
+        ):  # if the movement results in the tank overlapping with the mount
+            self.rect = self.rect.move(
+                (0, -5)
+            )  # raise the tank to the acceptable slope
+            t_offset = (
+                mount.rect.left - self.rect.left,
+                mount.rect.top - self.rect.top,
+            )
+            if (
+                self.mask.overlap_area(mount.mask, t_offset) > 50
+            ):  # if it is still overlapping
+                self.rect = self.rect.move(
+                    (-step, 0)
+                )  # return it to its initial position on the x axis (ground will handle the y axis)
+
+    def fire_shell(self, power):
+        # damage = 0
+        # take the gun coordinates and fire the shell
+        fire = True
+        # convert the tuple into a list to enable modifications of the shell position
+        print("Fire!")
+
+        tur_pos = self.tur_pos
+        gun_power = power
+
+        shell_surf = pygame.Surface((10, 10))
+        shell_surf.fill(blue)
+        shell_surf.set_colorkey(blue)
+
+        turret_exit = (self.rect.center[0] - (15 * self.direction), self.rect.top + 10)
+
+        shell_rect = shell_surf.get_rect(center=turret_exit)
+        pygame.draw.circle(shell_surf, red, (5, 5), 5)
+        shell_mask = pygame.mask.from_surface(shell_surf)
+        prev_coords = []
+
+        # make the loop stop after a single press of the space key
+        while fire:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+
+            if shell_rect.bottom > screen_h:
+                shell_rect.bottom = screen_h
+                explosion(
+                    shell_rect.left,
+                    shell_rect.top,
+                    size=explosion_radius,
+                )
+                explode_coords = (shell_rect.left, shell_rect.top - 300)
+                explode_list.append(explode_coords)
+                fire = False
+
+            x_change = (12 - tur_pos) * (2 * self.direction)
+            y_change = int(
+                (
+                    ((shell_rect.center[0] - turret_exit[0]) * 0.015 / (gun_power / 50))
+                    ** 2
+                )
+                - (tur_pos + tur_pos / (12 - tur_pos))
+            )
+
+            shell_rect = shell_rect.move((x_change, y_change))
+            # calculate the offset
+            offset_x = shell_rect.left - mount.rect.left
+            offset_y = shell_rect.top - mount.rect.top
+
+            # check if there is a collision or not
+            if mount.mask.overlap(shell_mask, (offset_x, offset_y)):
+                explosion(
+                    shell_rect.left,
+                    shell_rect.top,
+                    size=explosion_radius,
+                )
+                explode_coords = (shell_rect.left, shell_rect.top - mount.h)
+                explode_list.append(explode_coords)
+                explode_rect = explode_surf.get_rect(
+                    center=(explode_coords[0], explode_coords[1] + 300)
+                )
+                for vehicle in tank_list:
+                    if math.dist(shell_rect.center, vehicle.rect.center) < (
+                        explosion_radius
+                        + math.dist(vehicle.rect.center, vehicle.rect.bottomleft)
+                    ):
+                        vehicle.decrease_health(25)
+                mount.erode(explode_rect)
+                fire = False
+            game_display.blit(shell_surf, shell_rect)
+            pygame.display.update()
+            prev_coords.append(shell_rect.center)
+            if len(prev_coords) > 1:
+                pygame.draw.circle(game_display, blue, prev_coords[-2], 5)
+            clock.tick(60)
 
 
 class Mount:
@@ -150,49 +275,10 @@ class Mount:
         self.mask = pygame.mask.from_surface(self.surf)
         self.display.blit(self.surf, self.rect)
 
-
-def ground_tank(tank, mount):
-    t_offset = (mount.rect.left - tank.rect.left, mount.rect.top - tank.rect.top)
-    overlap_flag = False
-
-    while overlap_flag == False:
-        tank.rect = tank.rect.move((0, 1))
-        t_offset = (mount.rect.left - tank.rect.left, mount.rect.top - tank.rect.top)
-        if tank.rect.bottom >= screen_h:
-            tank.rect.bottom = screen_h
-            overlap_flag = True
-        elif tank.mask.overlap_area(mount.mask, t_offset) > 50:
-            tank.rect = tank.rect.move((0, -1))
-            overlap_flag = True
-    return tank
-
-
-def move_tank(tank, mount, step):
-    """Makes the tank move in the the given direction
-    and also allows the tank to climb up to a certain slope
-
-	Args:
-		tank (_type_): _description_
-		mount (_type_): _description_
-		step (_type_): _description_
-
-	Returns:
-		_type_: _description_
-	"""
-    tank.rect = tank.rect.move((step, 0))  # make the tank move
-    t_offset = (mount.rect.left - tank.rect.left, mount.rect.top - tank.rect.top)
-    if (
-        tank.mask.overlap_area(mount.mask, t_offset) > 50
-    ):  # if the movement results in the tank overlapping with the mount
-        tank.rect = tank.rect.move((0, -5))  # raise the tank to the acceptable slope
-        t_offset = (mount.rect.left - tank.rect.left, mount.rect.top - tank.rect.top)
-        if (
-            tank.mask.overlap_area(mount.mask, t_offset) > 50
-        ):  # if it is still overlapping
-            tank.rect = tank.rect.move(
-                (-step, 0)
-            )  # return it to its initial position on the x axis (ground_tank will handle the y axis)
-    return tank
+    def erode(self, explode_rect):
+        explode_offset_x = explode_rect.left - self.rect.left
+        explode_offset_y = explode_rect.top - self.rect.top
+        self.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
 
 
 def explosion(x, y, size=explosion_radius):
@@ -209,8 +295,6 @@ def explosion(x, y, size=explosion_radius):
         magnitude = 1
         for tank in tank_list:
             game_display.blit(tank.surf, tank.rect)
-        #game_display.blit(tank1.surf, tank1.rect)
-        # game_display.blit(tank2.surf, tank2.rect)
 
         while magnitude < size:
             exploding_bit_x = x + random.randrange(-1 * magnitude, magnitude)
@@ -227,87 +311,6 @@ def explosion(x, y, size=explosion_radius):
             clock.tick(100)
 
         explode = False
-
-
-def fireshell(tank, direction, power):
-    # damage = 0
-    # take the gun coordinates and fire the shell
-    fire = True
-    # convert the tuple into a list to enable modifications of the shell position
-    print("Fire!")
-
-    tur_pos = tank.tur_pos
-    gun_power = power
-
-    shell_surf = pygame.Surface((10, 10))
-    shell_surf.fill(blue)
-    shell_surf.set_colorkey(blue)
-
-    turret_exit = (tank.rect.center[0] - (15 * direction), tank.rect.top + 10)
-
-    shell_rect = shell_surf.get_rect(center=turret_exit)
-    pygame.draw.circle(shell_surf, red, (5, 5), 5)
-    shell_mask = pygame.mask.from_surface(shell_surf)
-    prev_coords = []
-
-    # make the loop stop after a single press of the space key
-    while fire:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-
-        if shell_rect.bottom > screen_h:
-            shell_rect.bottom = screen_h
-            explosion(
-                shell_rect.left,
-                shell_rect.top,
-                size=explosion_radius,
-            )
-            explode_coords = (shell_rect.left, shell_rect.top - 300)
-            explode_list.append(explode_coords)
-            fire = False
-
-        x_change = (12 - tur_pos) * (2 * direction)
-        y_change = int(
-            (((shell_rect.center[0] - turret_exit[0]) * 0.015 / (gun_power / 50)) ** 2)
-            - (tur_pos + tur_pos / (12 - tur_pos))
-        )
-
-        # shell_rect.center[1] += y_change
-        shell_rect = shell_rect.move((-x_change, y_change))
-        # calculate the offset
-        offset_x = shell_rect.left - mount.rect.left
-        offset_y = shell_rect.top - mount.rect.top
-
-        # check if there is a collision or not
-        if mount.mask.overlap(shell_mask, (offset_x, offset_y)):
-            explosion(
-                shell_rect.left,
-                shell_rect.top,
-                size=explosion_radius,
-            )
-            explode_coords = (shell_rect.left, shell_rect.top - mount.h)
-            explode_list.append(explode_coords)
-            explode_rect = explode_surf.get_rect(
-                center=(explode_coords[0], explode_coords[1] + 300)
-            )
-            explode_offset_x = explode_rect.left - mount.rect.left
-            explode_offset_y = explode_rect.top - mount.rect.top
-            for vehicle in tank_list:
-                if math.dist(shell_rect.center, vehicle.rect.center) < (
-                    explosion_radius
-                    + math.dist(vehicle.rect.center, vehicle.rect.bottomleft)
-                ):
-                    vehicle.decrease_health(25)
-            mount.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
-            fire = False
-        game_display.blit(shell_surf, shell_rect)
-        pygame.display.update()
-        prev_coords.append(shell_rect.center)
-        if len(prev_coords) > 1:
-            pygame.draw.circle(game_display, blue, prev_coords[-2], 5)
-        clock.tick(60)
 
 
 def game_over(win_index):
@@ -357,8 +360,12 @@ tank_list = [tank1, tank2]
 tank_index = 0
 current_tank = tank_list[tank_index]
 
-left_flag = False
-right_flag = False
+moving_flag = False
+
+
+"""
+Main game loop
+"""
 
 while True:
     for event in pygame.event.get():
@@ -369,42 +376,26 @@ while True:
             if event.key == pygame.K_SPACE:
                 power_change += 1
             elif event.key == pygame.K_LEFT:
-                left_flag = True
-                current_tank.update_turret(change=1)
-                current_tank.draw_with_mask()
+                moving_flag = True
+                current_tank.direction = -1
             elif event.key == pygame.K_RIGHT:
-                right_flag = True
-                current_tank.update_turret(change=-1)
-                current_tank.draw_with_mask()
+                moving_flag = True
+                current_tank.direction = 1
             elif event.key == pygame.K_UP:
-                up_flag = True
                 if current_tank.tur_pos < 8:
                     current_tank.tur_pos += 1
-                    current_tank.update_turret(
-                        change=current_tank.direction
-                    )
-                    current_tank.draw_with_mask()
-                    clock.tick(10)
             elif event.key == pygame.K_DOWN:
-                up_flag = True
                 if current_tank.tur_pos > 0:
                     current_tank.tur_pos -= 1
-                    current_tank.update_turret(
-                        change=current_tank.direction
-                    )
-                    current_tank.draw_with_mask()
-                    clock.tick(10)
+            current_tank.update_turret()
+            current_tank.draw_with_mask()
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
-                left_flag = False
+                moving_flag = False
             elif event.key == pygame.K_RIGHT:
-                right_flag = False
+                moving_flag = False
             elif event.key == pygame.K_SPACE:
-                fireshell(
-                    current_tank,
-                    direction=current_tank.direction,
-                    power=gun_power,
-                )
+                current_tank.fire_shell(power=gun_power)
                 power_change = 0
                 gun_power = 1  # must be at leat 1 to prevent dividionbyzero error
                 tank_index += 1
@@ -417,9 +408,9 @@ while True:
     clock.tick(35)
 
     """
-	Render all the appropriate objects:
-	Screen, sun, power rectangle, mount, tanks etc
-	"""
+    Render all the appropriate objects:
+    Screen, sun, power rectangle, mount, tanks etc
+    """
 
     # render the screen, sun and surface
     game_display.fill(blue)
@@ -447,18 +438,13 @@ while True:
 
     # Tanks
     for tank in tank_list:
-        tank = ground_tank(tank,mount)
+        tank.ground(mount)
 
     # The mountain
     game_display.blit(mount.surf, mount.rect)
 
-    if left_flag:
-        current_tank = move_tank(
-            current_tank, mount, -5
-        )
-        clock.tick(15)
-    if right_flag:
-        current_tank = move_tank(current_tank, mount, 5)
+    if moving_flag:
+        current_tank.move(mount, 5 * current_tank.direction)
         clock.tick(15)
 
     # now draw this surface with the color depending on the collision or not
