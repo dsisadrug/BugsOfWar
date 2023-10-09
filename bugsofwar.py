@@ -95,14 +95,18 @@ class Tank:
         self.line_x = self.x - (self.turret_positions[self.tur_pos][0] * self.direction)
         self.line_y = self.y - self.turret_positions[self.tur_pos][1]
 
-    def draw_with_mask(self):
+    def draw_shapes(self):
         """Draws the shapes of the tank on the screen"""
         self.surf.fill(self.bg_color)
         self.surf.set_colorkey(self.bg_color)
+
+        # draw the body of the tank
         pygame.draw.circle(self.surf, self.color, (self.x, self.y), int(self.h / 2))
         pygame.draw.rect(
             self.surf, self.color, (self.x - self.h, self.y, self.w, self.h)
         )
+
+        # draw the turret
         pygame.draw.line(
             self.surf,
             self.color,
@@ -110,12 +114,16 @@ class Tank:
             (self.line_x, self.line_y),
             self.turret_w,
         )
+
+        # draw the wheels
         start_x = 15
         for i in range(7):
             pygame.draw.circle(
                 self.surf, self.color, (self.x - start_x, self.y + 20), self.wheel_w
             )
             start_x -= 5
+
+        # draw the health bar
         pygame.draw.rect(
             self.surf,
             self.health_color,
@@ -432,9 +440,9 @@ explode_list = []
 # Instantiate Mount and Tank objects
 mount = Mount(display=game_display, shape=mount_shape)
 tank1 = Tank(rect_x=int(0.1 * 800), rect_y=int(0.1 * 600), direction=-1)
-tank1.draw_with_mask()
+tank1.draw_shapes()
 tank2 = Tank(rect_x=int(0.9 * 800), rect_y=int(0.1 * 600), direction=1)
-tank2.draw_with_mask()
+tank2.draw_shapes()
 
 # Add tanks to list and select the first tank
 tank_list = [tank1, tank2]
@@ -475,7 +483,7 @@ while True:
                 if current_tank.tur_pos > 0:
                     current_tank.tur_pos -= 1
             current_tank.update_turret()
-            current_tank.draw_with_mask()
+            current_tank.draw_shapes()
         elif event.type == pygame.KEYUP:
             # letting go of either left or right arrow stops the tank
             if event.key in [pygame.K_LEFT, pygame.K_RIGHT]:
