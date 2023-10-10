@@ -50,6 +50,10 @@ s_font = pygame.font.SysFont("comicsansms", 20)
 clock = pygame.time.Clock()
 game_display = pygame.display.set_mode((screen_w, screen_h))
 
+"""
+Class definitions
+"""
+
 
 class Tank:
     """A class representing a tank."""
@@ -348,6 +352,11 @@ class Mount:
 
         # Remove the coordinates of the explosin from the mount's mask
         self.mask.erase(explode_mask, (explode_offset_x, explode_offset_y))
+
+
+"""
+Function definitions
+"""
 
 
 def explosion(x, y, size=explosion_radius):
